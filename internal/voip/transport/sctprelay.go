@@ -90,6 +90,17 @@ type SctpRelayManager struct {
 	// (assinaturas de grupo + HBH-FEC). Recebe o endpoint/token/chave do relay e
 	// devolve o pacote STUN pronto. Chamado a cada (re)envio de registro/keepalive.
 	groupAllocate func(ip string, port int, rawToken, key []byte) []byte
+
+	// relayNet (patch leadmi): por onde a mídia sai. nil = UDP direto (original).
+	relayNet *RelayNet
+}
+
+// SetRelayNet define por onde a mídia das conexões de relay sai (ex.: proxy SOCKS5
+// da sessão). Vale para as conexões abertas depois da chamada. nil = UDP direto.
+func (m *SctpRelayManager) SetRelayNet(rn *RelayNet) {
+	m.mu.Lock()
+	m.relayNet = rn
+	m.mu.Unlock()
 }
 
 // SetGroupAllocate liga o modo de chamada em GRUPO no relay: o Allocate passa a ser
@@ -190,7 +201,27 @@ func (m *SctpRelayManager) connectToRelay(info RelayConfig) {
 	m.connections[id] = conn
 	m.mu.Unlock()
 
-	pc, err := relayAPI.NewPeerConnection(webrtc.Configuration{})
+	api := relayAPI
+	m.mu.Lock()
+	rn := m.relayNet
+	m.mu.Unlock()
+	if rn != nil {
+		if rn.Block != nil {
+			m.log.Warn("relay: mídia bloqueada (proxy da sessão não transporta UDP)", "id", id, "err", rn.Block)
+			m.failConnection(conn)
+			return
+		}
+		a, err := rn.webrtcAPI()
+		if err != nil {
+			m.log.Error("relay: rede da mídia indisponível", "id", id, "err", err)
+			m.failConnection(conn)
+			return
+		}
+		api = a
+		m.log.Info("relay: mídia pelo proxy da sessão", "id", id, "via", rn.Label)
+	}
+
+	pc, err := api.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		m.log.Error("relay peerconnection failed", "id", id, "err", err)
 		m.failConnection(conn)

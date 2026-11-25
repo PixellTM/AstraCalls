@@ -105,6 +105,14 @@ func NewCallManager(sock core.VoipSocket, log *slog.Logger) *CallManager {
 	return m
 }
 
+// SetRelayNet (patch leadmi) define por onde a mídia desta chamada sai até o relay do
+// WhatsApp (ex.: proxy SOCKS5 da sessão). nil = UDP direto. Chamar antes da mídia.
+func (m *CallManager) SetRelayNet(rn *transport.RelayNet) {
+	if r, ok := m.relay.(interface{ SetRelayNet(*transport.RelayNet) }); ok {
+		r.SetRelayNet(rn)
+	}
+}
+
 func (m *CallManager) CurrentCall() *CallInfo {
 	m.mu.Lock()
 	defer m.mu.Unlock()

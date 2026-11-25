@@ -71,6 +71,10 @@ type GroupCallManager struct {
 	sock core.VoipSocket
 	log  *slog.Logger
 
+	// relayNetFn (patch leadmi) devolve por onde a mídia sai (proxy da sessão),
+	// consultado a cada conexão com o relay. nil (ou devolvendo nil) = UDP direto.
+	relayNetFn func() *transport.RelayNet
+
 	// Canal de mídia do relay de GRUPO (DTLS direto). O grupo NÃO usa o
 	// SctpRelayManager (WebRTC/ICE) do 1:1 — conecta direto, igual ao WhatsApp Web.
 	groupChan *transport.GroupRelayChannel
@@ -157,6 +161,12 @@ func NewGroupCallManager(sock core.VoipSocket, log *slog.Logger) *GroupCallManag
 		bySrtcpSSRC: make(map[uint32]*groupParticipant),
 		mixer:       groupmix.NewMixer(),
 	}
+}
+
+// SetRelayNetProvider (patch leadmi) define a função consultada a cada conexão com o
+// relay de grupo para saber por onde a mídia sai. Chamar logo após criar o manager.
+func (m *GroupCallManager) SetRelayNetProvider(fn func() *transport.RelayNet) {
+	m.relayNetFn = fn
 }
 
 // CallID devolve o id da call em andamento (vazio se não houver).
@@ -808,7 +818,14 @@ func (m *GroupCallManager) tryStartRelay() {
 
 	// Conecta o canal de mídia (DTLS direto) ao endpoint do relay de grupo.
 	m.log.Info("group relay: conectando (dtls direto)", "relay", relayName, "ip", ip, "port", port)
-	ch, err := transport.ConnectGroupRelay(ip, port)
+	var rn *transport.RelayNet
+	if fn := m.relayNetFn; fn != nil {
+		rn = fn()
+	}
+	if rn != nil {
+		m.log.Info("group relay: mídia pelo proxy da sessão", "via", rn.Label)
+	}
+	ch, err := transport.ConnectGroupRelay(ip, port, rn)
 	if err != nil {
 		m.log.Error("group relay: falha ao conectar", "err", err, "ip", ip, "port", port)
 		m.mu.Lock()

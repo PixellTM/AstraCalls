@@ -128,7 +128,10 @@ func BuildGroupBindingSuccess(request, integrityKey []byte) ([]byte, bool) {
 // ConnectGroupRelay conecta a pilha de mídia (UDP→DTLS→SCTP→DataChannel) a UM endpoint
 // de relay de grupo. Cert self-signed; verificação do cert do servidor pulada (auth da
 // mídia é HBH-SRTP). Só valida contra relay ao vivo.
-func ConnectGroupRelay(ip string, port int) (*GroupRelayChannel, error) {
+//
+// rn (patch leadmi) define por onde a mídia sai (ex.: proxy SOCKS5 da sessão); nil =
+// UDP direto (original).
+func ConnectGroupRelay(ip string, port int, rn *RelayNet) (*GroupRelayChannel, error) {
 	relayAddr := &net.UDPAddr{IP: net.ParseIP(ip), Port: port}
 	if relayAddr.IP == nil {
 		return nil, fmt.Errorf("group relay: ip inválido %q", ip)
@@ -141,7 +144,13 @@ func ConnectGroupRelay(ip string, port int) (*GroupRelayChannel, error) {
 		return nil, err
 	}
 
-	udp, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	var udp net.PacketConn
+	var err error
+	if rn != nil {
+		udp, err = rn.listenPacket()
+	} else {
+		udp, err = net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	}
 	if err != nil {
 		return nil, fmt.Errorf("group relay bind udp: %w", err)
 	}

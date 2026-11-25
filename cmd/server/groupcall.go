@@ -37,6 +37,7 @@ func (s *Session) ensureGroupCall() *call.GroupCallManager {
 	defer s.mu.Unlock()
 	if s.groupCall == nil {
 		gc := call.NewGroupCallManager(wa.NewSocket(s.client), s.log)
+		gc.SetRelayNetProvider(s.relayNetForCall) // patch leadmi: mídia pelo proxy da sessão
 		gc.OnEnded = func(callID string) { s.log.Info("group call ended", "call_id", callID) }
 		// TODO(live): ligar gc.OnPeerAudio ao bridge do navegador e alimentar
 		// gc.FeedCapturedPCM com o áudio do atendente (como no 1:1). Depende da

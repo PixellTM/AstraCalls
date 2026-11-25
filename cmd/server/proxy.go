@@ -39,7 +39,12 @@ func (s *server) handleGetProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := sess.getProxy()
-	writeJSON(w, http.StatusOK, map[string]any{"proxy": p, "enabled": p != ""})
+	mode := currentRelayProxyMode()
+	// media/relayProxyMode (patch leadmi): por onde sai a mídia das chamadas.
+	writeJSON(w, http.StatusOK, map[string]any{
+		"proxy": p, "enabled": p != "",
+		"media": mediaPath(mode, p), "relayProxyMode": string(mode),
+	})
 }
 
 // PUT /api/sessions/{sid}/proxy { "proxy": "socks5://user:pass@host:1080" }

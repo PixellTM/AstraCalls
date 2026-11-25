@@ -439,6 +439,7 @@ func (s *Session) runPresenceKeepalive() {
 // o chamador combina o opt-in por sessão (getRecording) com o flag por chamada.
 func (s *Session) createCall(callID string, record bool) *call.CallManager {
 	cm := call.NewCallManager(wa.NewSocket(s.client), s.log)
+	cm.SetRelayNet(s.relayNetForCall()) // patch leadmi: mídia pelo proxy da sessão
 	s.wireCall(cm, callID)
 	ac := &activeCall{cm: cm, spies: newSpyHub()}
 	ac.spies.OnChange = func(n int) { s.mgr.broker.emitCallSpy(s.id, callID, n) }

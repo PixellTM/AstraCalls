@@ -224,6 +224,9 @@ func (s *server) routes() http.Handler {
 	// Proxy de saída por sessão (http/https/socks5)
 	mux.HandleFunc("GET /api/sessions/{sid}/proxy", s.handleGetProxy)
 	mux.HandleFunc("PUT /api/sessions/{sid}/proxy", s.handleSetProxy)
+	// Patch leadmi: teste de UDP do proxy (a mídia das chamadas só passa por socks5 com UDP)
+	mux.HandleFunc("POST /api/sessions/{sid}/proxy/udp-test", s.handleProxyUDPTest)
+	mux.HandleFunc("POST /api/proxy/udp-test", s.handleProxyUDPTestGlobal)
 	// Votar numa enquete recebida
 	mux.HandleFunc("POST /api/sessions/{sid}/messages/poll-vote", s.handlePollVote)
 	// Responder (RSVP) um evento recebido
